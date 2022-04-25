@@ -104,17 +104,15 @@ def main(args):
 
     p_dropout = (None if args.dropout == 0.0 else args.dropout)
     adj = adj_mx_from_skeleton(dataset.skeleton())
-    model_pos = None
-    if args.model == 'modulated':
-        model_pos = GCN(adj, args.hid_dim, num_layers=args.num_layers, p_dropout=p_dropout,
-                                 nodes_group=dataset.skeleton().joints_group() if args.non_local else None).to(device)
+
+    model_pos = GCN(adj, args.hid_dim, num_layers=args.num_layers, p_dropout=p_dropout,
+                    nodes_group=dataset.skeleton().joints_group() if args.non_local else None, gcn_type=args.model).to(device)
 
     print("==> Total parameters: {:.2f}M".format(sum(p.numel() for p in model_pos.parameters()) / 1000000.0))
 
     criterion = nn.MSELoss(reduction='mean').to(device)
     criterionL1 = nn.L1Loss(reduction='mean').to(device)
-    optimizer = torch.optim.AdamW(model_pos.parameters(), lr=args.lr,
-                                  weight_decay=0.0001)  # torch.optim.Adam(model_pos.parameters(), lr=args.lr)
+    optimizer = torch.optim.Adam(model_pos.parameters(), lr=args.lr)
 
     # Optionally resume from a checkpoint
     if args.resume or args.evaluate:
