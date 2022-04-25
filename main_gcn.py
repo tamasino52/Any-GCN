@@ -57,6 +57,7 @@ def parse_args():
     parser.add_argument('--model', default='modulated', type=str, metavar='NAME', help='type of gcn')
     parser.add_argument('-n', '--name', default='', type=str, metavar='NAME', help='name of model')
 
+
     # Experimental
     parser.add_argument('--downsample', default=1, type=int, metavar='FACTOR', help='downsample frame rate by factor')
 

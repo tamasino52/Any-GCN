@@ -7,6 +7,7 @@ from models.gconv.post_agg_graph_conv import DecouplePostAggGraphConv
 from models.gconv.conv_style_graph_conv import ConvStyleGraphConv
 from models.gconv.no_sharing_graph_conv import NoSharingGraphConv
 from models.gconv.sem_ch_graph_conv import SemCHGraphConv
+from models.gconv.sem_graph_conv import SemGraphConv
 from models.gconv.chebyshev_graph_conv import ChebyshevGraphConv
 from models.gconv.modulated_gcn_conv import ModulatedGraphConv
 
@@ -18,17 +19,25 @@ class _GraphConv(nn.Module):
         super(_GraphConv, self).__init__()
 
         if gcn_type == 'vanilla':
+            self.gconv = DecoupleVanillaGraphConv(input_dim, output_dim, adj, decouple=False)
+        if gcn_type == 'dc_vanilla':
             self.gconv = DecoupleVanillaGraphConv(input_dim, output_dim, adj)
         elif gcn_type == 'preagg':
+            self.gconv = DecouplePreAggGraphConv(input_dim, output_dim, adj, decouple=False)
+        elif gcn_type == 'dc_preagg':
             self.gconv = DecouplePreAggGraphConv(input_dim, output_dim, adj)
         elif gcn_type == 'postagg':
+            self.gconv = DecouplePostAggGraphConv(input_dim, output_dim, adj, decouple=False)
+        elif gcn_type == 'dc_postagg':
             self.gconv = DecouplePostAggGraphConv(input_dim, output_dim, adj)
         elif gcn_type == 'convst':
             self.gconv = ConvStyleGraphConv(input_dim, output_dim, adj)
         elif gcn_type == 'nosharing':
             self.gconv = NoSharingGraphConv(input_dim, output_dim, adj)
-        elif gcn_type == 'semantic':
+        elif gcn_type == 'ch_semantic':
             self.gconv = SemCHGraphConv(input_dim, output_dim, adj)
+        elif gcn_type == 'semantic':
+            self.gconv = SemGraphConv(input_dim, output_dim, adj)
         elif gcn_type == 'chebyshev':
             self.gconv = ChebyshevGraphConv(input_dim, output_dim, adj)
         elif gcn_type == 'modulated':
@@ -114,17 +123,25 @@ class GCN(nn.Module):
         self.gconv_layers = nn.Sequential(*_gconv_layers)
 
         if gcn_type == 'vanilla':
+            self.gconv_output = DecoupleVanillaGraphConv(hid_dim, coords_dim[1], adj, decouple=False)
+        if gcn_type == 'dc_vanilla':
             self.gconv_output = DecoupleVanillaGraphConv(hid_dim, coords_dim[1], adj)
         elif gcn_type == 'preagg':
+            self.gconv_output = DecouplePreAggGraphConv(hid_dim, coords_dim[1], adj, decouple=False)
+        elif gcn_type == 'dc_preagg':
             self.gconv_output = DecouplePreAggGraphConv(hid_dim, coords_dim[1], adj)
         elif gcn_type == 'postagg':
+            self.gconv_output = DecouplePostAggGraphConv(hid_dim, coords_dim[1], adj, decouple=False)
+        elif gcn_type == 'dc_postagg':
             self.gconv_output = DecouplePostAggGraphConv(hid_dim, coords_dim[1], adj)
         elif gcn_type == 'convst':
             self.gconv_output = ConvStyleGraphConv(hid_dim, coords_dim[1], adj)
         elif gcn_type == 'nosharing':
             self.gconv_output = NoSharingGraphConv(hid_dim, coords_dim[1], adj)
-        elif gcn_type == 'semantic':
+        elif gcn_type == 'ch_semantic':
             self.gconv_output = SemCHGraphConv(hid_dim, coords_dim[1], adj)
+        elif gcn_type == 'semantic':
+            self.gconv_output = SemGraphConv(hid_dim, coords_dim[1], adj)
         elif gcn_type == 'chebyshev':
             self.gconv_output = ChebyshevGraphConv(hid_dim, coords_dim[1], adj)
         elif gcn_type == 'modulated':
