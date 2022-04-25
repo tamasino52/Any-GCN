@@ -19,7 +19,7 @@ from common.graph_utils import adj_mx_from_skeleton
 from common.data_utils import fetch, read_3d_data, create_2d_data
 from common.generators import PoseGenerator
 from common.loss import mpjpe, p_mpjpe
-from models.modulated_gcn import ModulatedGCN
+from models.any_gcn import GCN
 
 
 def parse_args():
@@ -54,6 +54,7 @@ def parse_args():
     parser.add_argument('--non_local', dest='non_local', action='store_true', help='if use non-local layers')
     parser.set_defaults(non_local=False)
     parser.add_argument('--dropout', default=0.0, type=float, help='dropout rate')
+    parser.add_argument('--model', default='modulated', type=str, metavar='NAME', help='type of gcn')
     parser.add_argument('-n', '--name', default='', type=str, metavar='NAME', help='name of model')
 
     # Experimental
@@ -102,13 +103,17 @@ def main(args):
 
     p_dropout = (None if args.dropout == 0.0 else args.dropout)
     adj = adj_mx_from_skeleton(dataset.skeleton())
-    model_pos = ModulatedGCN(adj, args.hid_dim, num_layers=args.num_layers, p_dropout=p_dropout,
-                       nodes_group=dataset.skeleton().joints_group() if args.non_local else None).to(device)
+    model_pos = None
+    if args.model == 'modulated':
+        model_pos = GCN(adj, args.hid_dim, num_layers=args.num_layers, p_dropout=p_dropout,
+                                 nodes_group=dataset.skeleton().joints_group() if args.non_local else None).to(device)
+
     print("==> Total parameters: {:.2f}M".format(sum(p.numel() for p in model_pos.parameters()) / 1000000.0))
-    
+
     criterion = nn.MSELoss(reduction='mean').to(device)
     criterionL1 = nn.L1Loss(reduction='mean').to(device)
-    optimizer = torch.optim.AdamW(model_pos.parameters(), lr=args.lr, weight_decay=0.0001) #torch.optim.Adam(model_pos.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(model_pos.parameters(), lr=args.lr,
+                                  weight_decay=0.0001)  # torch.optim.Adam(model_pos.parameters(), lr=args.lr)
 
     # Optionally resume from a checkpoint
     if args.resume or args.evaluate:
@@ -124,10 +129,9 @@ def main(args):
             model_pos.load_state_dict(ckpt['state_dict'])
             optimizer.load_state_dict(ckpt['optimizer'])
             print("==> Loaded checkpoint (Epoch: {} | Error: {})".format(start_epoch, error_best))
-            #for name, p in model_pos.named_parameters(): 
+            # for name, p in model_pos.named_parameters():
             #    print(name)#, p.data)
-            #exit(0)
-    
+            # exit(0)
 
             if args.resume:
                 ckpt_dir_path = path.dirname(ckpt_path)
@@ -180,7 +184,8 @@ def main(args):
         print('\nEpoch: %d | LR: %.8f' % (epoch + 1, lr_now))
 
         # Train for one epoch
-        epoch_loss, lr_now, glob_step = train(train_loader, model_pos, args.lamda, criterion, criterionL1, optimizer, device, args.lr, lr_now,
+        epoch_loss, lr_now, glob_step = train(train_loader, model_pos, args.lamda, criterion, criterionL1, optimizer,
+                                              device, args.lr, lr_now,
                                               glob_step, args.lr_decay, args.lr_gamma, max_norm=args.max_norm)
 
         # Evaluate
@@ -206,7 +211,8 @@ def main(args):
     return
 
 
-def train(data_loader, model_pos, lamda, criterion, criterionL1, optimizer, device, lr_init, lr_now, step, decay, gamma, max_norm=True):
+def train(data_loader, model_pos, lamda, criterion, criterionL1, optimizer, device, lr_init, lr_now, step, decay, gamma,
+          max_norm=True):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     epoch_loss_3d_pos = AverageMeter()
@@ -230,7 +236,7 @@ def train(data_loader, model_pos, lamda, criterion, criterionL1, optimizer, devi
         outputs_3d = model_pos(inputs_2d)
 
         optimizer.zero_grad()
-        loss_3d_pos = (1-lamda)*criterion(outputs_3d, targets_3d) + lamda*criterionL1(outputs_3d, targets_3d)
+        loss_3d_pos = (1 - lamda) * criterion(outputs_3d, targets_3d) + lamda * criterionL1(outputs_3d, targets_3d)
         loss_3d_pos.backward()
         if max_norm:
             nn.utils.clip_grad_norm_(model_pos.parameters(), max_norm=1)

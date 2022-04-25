@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
 import torch.nn as nn
-from models.modulated_gcn_conv import ModulatedGraphConv as GraphConv
+from models.gconv.modulated_gcn_conv import ModulatedGraphConv as GraphConv
 from models.graph_non_local import GraphNonLocal
 
 
