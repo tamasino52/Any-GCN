@@ -92,12 +92,6 @@ gdown --id 1P7W3ldx2lxaYJJYcf3RG4Y9PsD4EJ6b0
 cd ..
 ```
 
-### Evaluating our pre-trained models
-The pre-trained models can be downloaded from [Google Drive](https://drive.google.com/drive/folders/1HoNd2YPc8BdGvrN46GR_N2OchahzLx4I?usp=sharing). Put `ckpt` in the project root directory.
-
-Note that the results will be reported in an **action-wise** manner.
-
-
 ### GT setup 
 
 GT 2D keypoints for Human3.6M datasets are obtained from [SemGCN](https://github.com/garyzhao/SemGCN) Zhao et al. [3], which can be downloaded by the following steps:
