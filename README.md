@@ -1,4 +1,6 @@
 # Any-GCN
+<a href="https://hits.seeyoufarm.com"><img src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Ftamasino52%2FAny-GCN&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=true"/></a>
+<img src="https://img.shields.io/badge/PyTorch-EE4C2C?style=flat-square&logo=Pytorch&logoColor=white"/></a>
 
 This repository provides pytorch implementations that API existing 3D human pose estimation models using GCN.
 Models implemented in the API are provided with a standardard residual architecture and use standard hyperparameters different from those used in existing papers, so there may be differences in the performance proposed in the paper. The references of GCN blocks provided by this repository are as follows.
