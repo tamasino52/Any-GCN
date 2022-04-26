@@ -53,6 +53,8 @@ def parse_args():
     parser.set_defaults(max_norm=True)
     parser.add_argument('--non_local', dest='non_local', action='store_true', help='if use non-local layers')
     parser.set_defaults(non_local=False)
+    parser.add_argument('--adamw', dest='adamw', action='store_true', help='if use adamw optimizer')
+    parser.set_defaults(adamw=False)
     parser.add_argument('--dropout', default=0.0, type=float, help='dropout rate')
     parser.add_argument('--model', default='modulated', type=str, metavar='NAME', help='type of gcn')
     parser.add_argument('-n', '--name', default='', type=str, metavar='NAME', help='name of model')
@@ -103,7 +105,7 @@ def main(args):
     print("==> Creating model...")
 
     p_dropout = (None if args.dropout == 0.0 else args.dropout)
-    adj = adj_mx_from_skeleton(dataset.skeleton())
+    adj = adj_mx_from_skeleton(dataset.skeleton()).to(device)
 
     model_pos = GCN(adj, args.hid_dim, num_layers=args.num_layers, p_dropout=p_dropout,
                     nodes_group=dataset.skeleton().joints_group() if args.non_local else None, gcn_type=args.model).to(device)
@@ -112,7 +114,11 @@ def main(args):
 
     criterion = nn.MSELoss(reduction='mean').to(device)
     criterionL1 = nn.L1Loss(reduction='mean').to(device)
-    optimizer = torch.optim.Adam(model_pos.parameters(), lr=args.lr)
+
+    if args.adamw:
+        optimizer = torch.optim.AdamW(model_pos.parameters(), lr=args.lr, weight_decay=0.001)
+    else:
+        optimizer = torch.optim.Adam(model_pos.parameters(), lr=args.lr)
 
     # Optionally resume from a checkpoint
     if args.resume or args.evaluate:
