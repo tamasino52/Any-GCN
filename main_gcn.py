@@ -282,7 +282,7 @@ def evaluate(data_loader, model_pos, device):
 
         inputs_2d = inputs_2d.to(device)
         outputs_3d = model_pos(inputs_2d).cpu()
-        outputs_3d[:, :, :] -= outputs_3d[:, :1, :]  # Zero-centre the root (hip)
+        outputs_3d[:, :, :] = outputs_3d[:, :, :] - outputs_3d[:, :1, :]  # Zero-centre the root (hip)
 
         epoch_loss_3d_pos.update(mpjpe(outputs_3d, targets_3d).item() * 1000.0, num_poses)
         epoch_loss_3d_pos_procrustes.update(p_mpjpe(outputs_3d.numpy(), targets_3d.numpy()).item() * 1000.0, num_poses)
