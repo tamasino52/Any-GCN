@@ -47,16 +47,10 @@ class DecouplePostAggGraphConv(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         self.n_pts = adj.size(1)
-        self.W = nn.Parameter(torch.zeros(size=(self.n_pts, in_features, out_features), dtype=torch.float))
-        self.T = nn.Parameter(
-            torch.zeros(size=(self.n_pts, in_features, out_features), dtype=torch.float)) if decouple else None
-
+        self.W = nn.Parameter(torch.zeros(size=(2, self.n_pts, in_features, out_features), dtype=torch.float))
         nn.init.xavier_uniform_(self.W.data, gain=1.414)
-        nn.init.xavier_uniform_(self.T.data, gain=1.414)
 
         self.adj = adj
-        self.diag = torch.diagflat(torch.diagonal(adj, 0))
-        self.ex_diag = adj - self.diag
 
         if bias:
             self.bias = nn.Parameter(torch.zeros(out_features, dtype=torch.float))
@@ -66,10 +60,15 @@ class DecouplePostAggGraphConv(nn.Module):
             self.register_parameter('bias', None)
 
     def forward(self, input):
+        adj = self.adj.to(input.device)
+
         if self.decouple:
-            h0 = torch.matmul(self.ex_diag, input)
-            t0 = torch.matmul(self.diag, input)
-            output = torch.einsum('bjn,jnm->bjm', h0, self.W) + torch.einsum('bjn,jnm->bjm', t0, self.T)
+            E = torch.eye(adj.size(0), dtype=torch.float).to(input.device)
+
+            h0 = torch.matmul(adj * E, input)
+            h1 = torch.matmul(adj * (1 - E), input)
+
+            output = torch.einsum('bjn,jnm->bjm', h0, self.W[0]) + torch.einsum('bjn,jnm->bjm', h1, self.W[1])
         else:
             h0 = torch.matmul(self.adj, input)
             output = torch.einsum('bjn,jnm->bjm', h0, self.W)

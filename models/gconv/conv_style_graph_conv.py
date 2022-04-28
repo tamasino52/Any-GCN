@@ -32,11 +32,17 @@ class ConvStyleGraphConv(nn.Module):
             self.register_parameter('bias', None)
 
     def forward(self, input):
+        adj = self.adj.to(input.device)
+
         h0 = torch.matmul(input, self.W[0])
         h1 = torch.matmul(input, self.W[1])
         h2 = torch.matmul(input, self.W[2])
 
-        output = torch.matmul(self.adj_0, h0) + torch.matmul(self.adj_1, h1) + torch.matmul(self.adj_2, h2)
+        E0 = torch.eye(adj.size(0), dtype=torch.float).to(input.device)
+        E1 = torch.triu(torch.ones_like(adj), diagonal=1)
+        E2 = 1 - E1 - E0
+
+        output = torch.matmul(adj * E0, h0) + torch.matmul(adj * E1, h1) + torch.matmul(adj * E2, h2)
 
         if self.bias is not None:
             return output + self.bias.view(1, 1, -1)

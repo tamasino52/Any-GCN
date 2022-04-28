@@ -10,6 +10,7 @@ from models.gconv.sem_ch_graph_conv import SemCHGraphConv
 from models.gconv.sem_graph_conv import SemGraphConv
 from models.gconv.chebyshev_graph_conv import ChebyshevGraphConv
 from models.gconv.modulated_gcn_conv import ModulatedGraphConv
+from models.gconv.conditional_gcn_conv import ConditionalGraphConv
 
 from models.graph_non_local import GraphNonLocal
 
@@ -146,6 +147,8 @@ class GCN(nn.Module):
             self.gconv_output = ChebyshevGraphConv(hid_dim, coords_dim[1], adj)
         elif gcn_type == 'modulated':
             self.gconv_output = ModulatedGraphConv(hid_dim, coords_dim[1], adj)
+        elif gcn_type == 'conditional':
+            self.gconv_output = ConditionalGraphConv(hid_dim, coords_dim[1], adj)
         else:
             self.gconv_output = None
 

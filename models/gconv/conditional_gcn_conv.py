@@ -5,17 +5,40 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+from torch.nn.parameter import Parameter
+import functools
 
 
-class ModulatedGraphConv(nn.Module):
+class _routing(nn.Module):
+
+    def __init__(self, in_channels, num_experts, dropout_rate):
+        super(_routing, self).__init__()
+
+        self.dropout = nn.Dropout(dropout_rate)
+        self.fc = nn.Linear(in_channels, num_experts)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = x.view(x.shape[0], -1)
+        x = self.dropout(x)
+        x = self.fc(x)
+        return self.sigmoid(x)
+
+
+class ConditionalGraphConv(nn.Module):
     """
     Semantic graph convolution layer
     """
 
     def __init__(self, in_features, out_features, adj, bias=True):
-        super(ModulatedGraphConv, self).__init__()
+        super(ConditionalGraphConv, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
+
+        num_experts = 6
+        self._routing_fn = _routing(in_features, num_experts, 0.1)
+        self.weight = nn.Parameter(adj.unsqueeze(0).repeat(num_experts, 1, 1))
+        nn.init.xavier_uniform_(self.weight)
 
         self.W = nn.Parameter(torch.zeros(size=(2, in_features, out_features), dtype=torch.float))
         nn.init.xavier_uniform_(self.W.data, gain=1.414)
@@ -38,14 +61,18 @@ class ModulatedGraphConv(nn.Module):
         h0 = torch.matmul(input, self.W[0])
         h1 = torch.matmul(input, self.W[1])
 
+        c = F.avg_pool2d(input, [self.adj.size(0), 1])
+        r_w = self._routing_fn(c)
+        cond_e = torch.sum(r_w[:, :, None, None] * self.weight, 1)
+
         # add modulation
-        adj = self.adj.to(input.device) + self.adj2.to(input.device)
+        adj = cond_e # self.adj[None, :] .to(input.device) + cond_e
 
         # symmetry modulation
-        adj = (adj.T + adj)/2
+        #adj = (adj.transpose(1, 2) + adj)/2
 
         # mix modulation
-        E = torch.eye(adj.size(0), dtype=torch.float).to(input.device)
+        E = torch.eye(adj.size(1), dtype=torch.float).to(input.device)
         output = torch.matmul(adj * E, self.M * h0) + torch.matmul(adj * (1 - E), self.M * h1)
         if self.bias is not None:
             return output + self.bias.view(1, 1, -1)

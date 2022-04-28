@@ -110,6 +110,17 @@ def main(args):
     model_pos = GCN(adj, args.hid_dim, num_layers=args.num_layers, p_dropout=p_dropout,
                     nodes_group=dataset.skeleton().joints_group() if args.non_local else None, gcn_type=args.model).to(device)
 
+    '''
+    import matplotlib.pyplot as plt
+    adj = (adj.T + adj) / 2
+    plt.pcolor(adj.detach().cpu().numpy())
+    plt.xticks(np.arange(0.5, 16, 1), range(0, 16))
+    plt.yticks(np.arange(0.5, 16, 1), range(0, 16))
+    plt.colorbar()
+    plt.show()
+    plt.savefig('default.png')
+    '''
+
     print("==> Total parameters: {:.2f}M".format(sum(p.numel() for p in model_pos.parameters()) / 1000000.0))
 
     criterion = nn.MSELoss(reduction='mean').to(device)

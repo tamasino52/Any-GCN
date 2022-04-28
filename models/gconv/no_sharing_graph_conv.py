@@ -15,6 +15,7 @@ class NoSharingGraphConv(nn.Module):
         super(NoSharingGraphConv, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
+
         self.n_pts = adj.size(1)
         self.W = nn.Parameter(torch.zeros(size=(self.n_pts, self.n_pts, in_features, out_features), dtype=torch.float))
         nn.init.xavier_uniform_(self.W.data, gain=1.414)
@@ -29,8 +30,10 @@ class NoSharingGraphConv(nn.Module):
             self.register_parameter('bias', None)
 
     def forward(self, input):
+        adj = self.adj.to(input.device)
+
         h0 = torch.einsum('bhn,hwnm->bhwm', input, self.W)
-        output = torch.einsum('hw, bhwm->bhm', self.adj, h0)
+        output = torch.einsum('hw, bhwm->bhm', adj, h0)
 
         if self.bias is not None:
             return output + self.bias.view(1, 1, -1)
