@@ -35,20 +35,21 @@ class ConditionalGraphConv(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
 
-        num_experts = 6
+        num_experts = 8
         self._routing_fn = _routing(in_features, num_experts, 0.1)
         self.weight = nn.Parameter(adj.unsqueeze(0).repeat(num_experts, 1, 1))
         nn.init.xavier_uniform_(self.weight)
 
-        self.W = nn.Parameter(torch.zeros(size=(3, in_features, out_features), dtype=torch.float))
+        self.W = nn.Parameter(torch.zeros(size=(2, in_features, out_features), dtype=torch.float))
         nn.init.xavier_uniform_(self.W.data, gain=1.414)
 
         self.M = nn.Parameter(torch.ones(size=(adj.size(0), out_features), dtype=torch.float))
+        nn.init.xavier_uniform_(self.M.data, gain=1.414)
 
         self.adj = adj
 
-        self.adj2 = nn.Parameter(torch.ones_like(adj))        
-        nn.init.constant_(self.adj2, 1e-6)
+        #self.adj2 = nn.Parameter(torch.ones_like(adj))
+        #nn.init.constant_(self.adj2, 1e-6)
 
         if bias:
             self.bias = nn.Parameter(torch.zeros(out_features, dtype=torch.float))
@@ -60,11 +61,10 @@ class ConditionalGraphConv(nn.Module):
     def forward(self, input):
         h0 = torch.matmul(input, self.W[0])
         h1 = torch.matmul(input, self.W[1])
-        h2 = torch.matmul(input, self.W[2])
 
         E0 = torch.eye(self.adj.size(1), dtype=torch.float).to(input.device)
-        E1 = torch.triu(torch.ones_like(self.adj), diagonal=1)
-        E2 = 1 - E1 - E0
+        #E1 = torch.triu(torch.ones_like(self.adj), diagonal=1)
+        #E2 = 1 - E1 - E0
 
         c = F.avg_pool2d(input, [self.adj.size(1), 1])
         r_w = self._routing_fn(c)
@@ -77,7 +77,7 @@ class ConditionalGraphConv(nn.Module):
         adj = (adj.transpose(1, 2) + adj)/2
 
         # mix modulation
-        output = torch.matmul(adj * E0, h0) + torch.matmul(adj * E1, h1) + torch.matmul(adj * E2, h2)
+        output = torch.matmul(adj * E0, h0) + torch.matmul(adj * (1 - E0), self.M * h1)
 
         if self.bias is not None:
             return output + self.bias.view(1, 1, -1)
