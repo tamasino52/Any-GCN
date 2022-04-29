@@ -7,9 +7,6 @@ import torch.nn.functional as F
 
 
 class NoSharingGraphConv(nn.Module):
-    """
-    Semantic graph convolution layer
-    """
 
     def __init__(self, in_features, out_features, adj, bias=True):
         super(NoSharingGraphConv, self).__init__()
@@ -21,6 +18,7 @@ class NoSharingGraphConv(nn.Module):
         nn.init.xavier_uniform_(self.W.data, gain=1.414)
 
         self.adj = adj
+        # self.index = torch.tensor(torch.range(adj.size(1)))
 
         if bias:
             self.bias = nn.Parameter(torch.zeros(out_features, dtype=torch.float))
@@ -31,9 +29,9 @@ class NoSharingGraphConv(nn.Module):
 
     def forward(self, input):
         adj = self.adj.to(input.device)
-
+        # t0 = torch.zeros([input.shape[0], adj.shape[0], adj.shape[1], self.W.size[2]], dtype=torch.float).to(input.device)
         h0 = torch.einsum('bhn,hwnm->bhwm', input, self.W)
-        output = torch.einsum('hw, bhwm->bhm', adj, h0)
+        output = torch.einsum('hw, bhwm->bwm', adj, h0)
 
         if self.bias is not None:
             return output + self.bias.view(1, 1, -1)

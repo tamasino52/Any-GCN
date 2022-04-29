@@ -36,7 +36,7 @@ class ConditionalGraphConv(nn.Module):
         self.out_features = out_features
 
         num_experts = 8
-        self._routing_fn = _routing(in_features, num_experts, 0.1)
+        self._routing_fn = _routing(in_features, num_experts, 0.0)
         self.weight = nn.Parameter(adj.unsqueeze(0).repeat(num_experts, 1, 1))
         nn.init.xavier_uniform_(self.weight)
 

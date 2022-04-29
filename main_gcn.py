@@ -56,9 +56,8 @@ def parse_args():
     parser.add_argument('--adamw', dest='adamw', action='store_true', help='if use adamw optimizer')
     parser.set_defaults(adamw=False)
     parser.add_argument('--dropout', default=0.0, type=float, help='dropout rate')
-    parser.add_argument('--model', default='modulated', type=str, metavar='NAME', help='type of gcn')
+    parser.add_argument('--model', default='', type=str, metavar='NAME', help='type of gcn')
     parser.add_argument('-n', '--name', default='', type=str, metavar='NAME', help='name of model')
-
 
     # Experimental
     parser.add_argument('--downsample', default=1, type=int, metavar='FACTOR', help='downsample frame rate by factor')
@@ -262,7 +261,7 @@ def train(data_loader, model_pos, lamda, criterion, criterionL1, optimizer, devi
         end = time.time()
 
         bar.suffix = '({batch}/{size}) Data: {data:.6f}s | Batch: {bt:.3f}s | Total: {ttl:} | ETA: {eta:} ' \
-                     '| Loss: {loss: .4f}' \
+                     '| Loss: {loss: .6f}' \
             .format(batch=i + 1, size=len(data_loader), data=data_time.avg, bt=batch_time.avg,
                     ttl=bar.elapsed_td, eta=bar.eta_td, loss=epoch_loss_3d_pos.avg)
         bar.next()

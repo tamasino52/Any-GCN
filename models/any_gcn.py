@@ -43,6 +43,8 @@ class _GraphConv(nn.Module):
             self.gconv = ChebyshevGraphConv(input_dim, output_dim, adj)
         elif gcn_type == 'modulated':
             self.gconv = ModulatedGraphConv(input_dim, output_dim, adj)
+        elif gcn_type == 'conditional':
+            self.gconv = ConditionalGraphConv(input_dim, output_dim, adj)
         else:
             self.gconv = None
 

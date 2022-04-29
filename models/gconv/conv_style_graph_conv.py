@@ -20,9 +20,6 @@ class ConvStyleGraphConv(nn.Module):
         nn.init.xavier_uniform_(self.W.data, gain=1.414)
 
         self.adj = adj
-        self.adj_0 = torch.diagflat(torch.diagonal(adj, 0))
-        self.adj_1 = torch.triu(adj, diagonal=1)
-        self.adj_2 = torch.tril(adj, diagonal=-1)
 
         if bias:
             self.bias = nn.Parameter(torch.zeros(out_features, dtype=torch.float))
