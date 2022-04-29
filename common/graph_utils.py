@@ -31,7 +31,7 @@ def adj_mx_from_edges(num_pts, edges, sparse=True):
 
     # build symmetric adjacency matrix
     adj_mx = adj_mx + adj_mx.T.multiply(adj_mx.T > adj_mx) - adj_mx.multiply(adj_mx.T > adj_mx)
-    adj_mx = normalize(adj_mx+ sp.eye(adj_mx.shape[0]))
+    adj_mx = normalize(adj_mx + sp.eye(adj_mx.shape[0]))
     if sparse:
         adj_mx = sparse_mx_to_torch_sparse_tensor(adj_mx)
     else:
@@ -44,5 +44,6 @@ def adj_mx_from_edges(num_pts, edges, sparse=True):
 
 def adj_mx_from_skeleton(skeleton):
     num_joints = skeleton.num_joints()
-    edges = list(filter(lambda x: x[1] >= 0, zip(list(range(0, num_joints)), skeleton.parents())))
+    edges = list(filter(lambda x: x[1] >= 0, zip(list(range(0, num_joints)), skeleton.parents()))) \
+            + [(2, 0), (5, 0), (8, 0), (7, 4), (6, 4), (7, 1), (3, 1), (9, 7), (5, 0), (11, 8), (14, 8), (12, 10), (15, 13), (13, 10)]
     return adj_mx_from_edges(num_joints, edges, sparse=False)
