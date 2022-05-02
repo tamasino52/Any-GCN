@@ -1,6 +1,8 @@
 from __future__ import absolute_import
 
 import torch.nn as nn
+from functools import reduce
+
 from models.gconv.vanilla_graph_conv import DecoupleVanillaGraphConv
 from models.gconv.pre_agg_graph_conv import DecouplePreAggGraphConv
 from models.gconv.post_agg_graph_conv import DecouplePostAggGraphConv
@@ -21,7 +23,7 @@ class _GraphConv(nn.Module):
 
         if gcn_type == 'vanilla':
             self.gconv = DecoupleVanillaGraphConv(input_dim, output_dim, adj, decouple=False)
-        if gcn_type == 'dc_vanilla':
+        elif gcn_type == 'dc_vanilla':
             self.gconv = DecoupleVanillaGraphConv(input_dim, output_dim, adj)
         elif gcn_type == 'preagg':
             self.gconv = DecouplePreAggGraphConv(input_dim, output_dim, adj, decouple=False)
@@ -127,7 +129,7 @@ class GCN(nn.Module):
 
         if gcn_type == 'vanilla':
             self.gconv_output = DecoupleVanillaGraphConv(hid_dim, coords_dim[1], adj, decouple=False)
-        if gcn_type == 'dc_vanilla':
+        elif gcn_type == 'dc_vanilla':
             self.gconv_output = DecoupleVanillaGraphConv(hid_dim, coords_dim[1], adj)
         elif gcn_type == 'preagg':
             self.gconv_output = DecouplePreAggGraphConv(hid_dim, coords_dim[1], adj, decouple=False)

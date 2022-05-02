@@ -108,15 +108,15 @@ def main(args):
 
     model_pos = GCN(adj, args.hid_dim, num_layers=args.num_layers, p_dropout=p_dropout,
                     nodes_group=dataset.skeleton().joints_group() if args.non_local else None, gcn_type=args.model).to(device)
-    '''
+
     import matplotlib.pyplot as plt
     plt.pcolor(adj.detach().cpu().numpy())
     plt.xticks(np.arange(0.5, 16, 1), range(0, 16))
     plt.yticks(np.arange(0.5, 16, 1), range(0, 16))
+    plt.gca().invert_yaxis()
     plt.colorbar()
-    plt.show()
-    plt.savefig('default.png')
-    '''
+    plt.savefig(args.name + '.png')
+
     print("==> Total parameters: {:.2f}M".format(sum(p.numel() for p in model_pos.parameters()) / 1000000.0))
 
     criterion = nn.MSELoss(reduction='mean').to(device)
@@ -155,7 +155,7 @@ def main(args):
         error_best = None
         glob_step = 0
         lr_now = args.lr
-        ckpt_dir_path = path.join(args.checkpoint, args.name + '-' + datetime.date.today().isoformat())
+        ckpt_dir_path = path.join(args.checkpoint, args.name + '-' + args.model + '-' + datetime.date.today().isoformat())
 
         if not path.exists(ckpt_dir_path):
             os.makedirs(ckpt_dir_path)
