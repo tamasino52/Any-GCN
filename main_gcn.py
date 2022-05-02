@@ -107,7 +107,7 @@ def main(args):
     print("==> Creating model...")
 
     p_dropout = (None if args.dropout == 0.0 else args.dropout)
-    adj = adj_mx_from_skeleton(dataset.skeleton(), args.graph).to(device)
+    adj = adj_mx_from_skeleton(dataset.skeleton(), args.graph, args.refine).to(device)
 
     model_pos = GCN(adj, args.hid_dim, num_layers=args.num_layers, p_dropout=p_dropout,
                     nodes_group=dataset.skeleton().joints_group() if args.non_local else None, gcn_type=args.model).to(device)
