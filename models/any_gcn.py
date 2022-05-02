@@ -48,7 +48,7 @@ class _GraphConv(nn.Module):
         elif gcn_type == 'conditional':
             self.gconv = ConditionalGraphConv(input_dim, output_dim, adj)
         else:
-            self.gconv = None
+            assert False, 'Invalid graph convolution module type'
 
         self.bn = nn.BatchNorm1d(output_dim)
         self.relu = nn.ReLU()
@@ -154,7 +154,7 @@ class GCN(nn.Module):
         elif gcn_type == 'conditional':
             self.gconv_output = ConditionalGraphConv(hid_dim, coords_dim[1], adj)
         else:
-            self.gconv_output = None
+            assert False, 'Invalid graph convolution module type'
 
     def forward(self, x):
         out = self.gconv_input(x)

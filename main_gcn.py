@@ -6,6 +6,7 @@ import datetime
 import argparse
 import numpy as np
 import os.path as path
+import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
@@ -45,7 +46,7 @@ def parse_args():
                         help='batch size in terms of predicted frames')
     parser.add_argument('-e', '--epochs', default=50, type=int, metavar='N', help='number of training epochs')
     parser.add_argument('--lamda', '--weight_L1_norm', default=0.1, type=float, metavar='N', help='scale of L1 Norm')
-    parser.add_argument('--num_workers', default=8, type=int, metavar='N', help='num of workers for data loading')
+    parser.add_argument('--num_workers', default=4, type=int, metavar='N', help='num of workers for data loading')
     parser.add_argument('--lr', default=1.0e-3, type=float, metavar='LR', help='initial learning rate')
     parser.add_argument('--lr_decay', type=int, default=100000, help='num of steps of learning rate decay')
     parser.add_argument('--lr_gamma', type=float, default=0.96, help='gamma of learning rate decay')
@@ -58,6 +59,8 @@ def parse_args():
     parser.add_argument('--dropout', default=0.0, type=float, help='dropout rate')
     parser.add_argument('--model', default='', type=str, metavar='NAME', help='type of gcn')
     parser.add_argument('-n', '--name', default='', type=str, metavar='NAME', help='name of model')
+    parser.add_argument('--graph', default='default', type=str, metavar='NAME', help='name of graph')
+    parser.add_argument('--refine', default='default', type=str, metavar='NAME', help='name of graph')
 
     # Experimental
     parser.add_argument('--downsample', default=1, type=int, metavar='FACTOR', help='downsample frame rate by factor')
@@ -104,12 +107,12 @@ def main(args):
     print("==> Creating model...")
 
     p_dropout = (None if args.dropout == 0.0 else args.dropout)
-    adj = adj_mx_from_skeleton(dataset.skeleton()).to(device)
+    adj = adj_mx_from_skeleton(dataset.skeleton(), args.graph).to(device)
 
     model_pos = GCN(adj, args.hid_dim, num_layers=args.num_layers, p_dropout=p_dropout,
                     nodes_group=dataset.skeleton().joints_group() if args.non_local else None, gcn_type=args.model).to(device)
 
-    import matplotlib.pyplot as plt
+    # Graph visualization
     plt.pcolor(adj.detach().cpu().numpy())
     plt.xticks(np.arange(0.5, 16, 1), range(0, 16))
     plt.yticks(np.arange(0.5, 16, 1), range(0, 16))

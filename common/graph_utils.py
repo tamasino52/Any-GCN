@@ -42,10 +42,32 @@ def adj_mx_from_edges(num_pts, edges, sparse=True):
     return adj_mx
 
 
-def adj_mx_from_skeleton(skeleton):
+def adj_mx_from_skeleton(skeleton, graph_type, refine_type):
     num_joints = skeleton.num_joints()
     edges = list(filter(lambda x: x[1] >= 0, zip(list(range(0, num_joints)), skeleton.parents())))
-            #+ [(3, 1), (6, 4), (12, 10), (15, 13)]
-            #+ [(2, 0), (5, 0), (8, 0), (7, 4), (6, 4), (7, 1), (3, 1), (9, 7), (11, 8), (14, 8), (12, 10), (15, 13), (13, 10)]
 
-    return adj_mx_from_edges(num_joints, edges, sparse=False)
+    if graph_type == 'default':
+        pass
+    elif graph_type == 'double_chain':
+        edges += [(2, 0), (5, 0), (8, 0), (7, 4), (6, 4), (7, 1), (3, 1), (9, 7), (11, 8), (14, 8), (12, 10), (15, 13), (13, 10)]
+    elif graph_type == 'terminal_cycle':
+        edges += [(3, 1), (6, 4), (12, 10), (15, 13)]
+    elif graph_type == 'centralized':
+        edges += [(7, 4), (7, 1), (10, 7), (13, 7)]
+    elif graph_type == 'paired':
+        edges += [(4, 1), (5, 2), (6, 3), (13, 10), (14, 11), (15,12)]
+    else:
+        assert False, 'Invalid graph kernel type'
+
+    if refine_type == 'default':
+        pass
+    elif refine_type == 'self_weakening':
+        edges += [edge for edge in edges]
+    elif refine_type == 'self_reinforcement':
+        edges += [(n, n) for n in range(num_joints)]
+    else:
+        assert False, 'Invalid refinement type'
+
+    adj = adj_mx_from_edges(num_joints, edges, sparse=False)
+
+    return adj
