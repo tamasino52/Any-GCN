@@ -42,13 +42,13 @@ def parse_args():
     # Model arguments
     parser.add_argument('-l', '--num_layers', default=4, type=int, metavar='N', help='num of residual layers')
     parser.add_argument('-z', '--hid_dim', default=128, type=int, metavar='N', help='num of hidden dimensions')
-    parser.add_argument('-b', '--batch_size', default=64, type=int, metavar='N',
+    parser.add_argument('-b', '--batch_size', default=256, type=int, metavar='N',
                         help='batch size in terms of predicted frames')
     parser.add_argument('-e', '--epochs', default=50, type=int, metavar='N', help='number of training epochs')
     parser.add_argument('--lamda', '--weight_L1_norm', default=0.1, type=float, metavar='N', help='scale of L1 Norm')
     parser.add_argument('--num_workers', default=4, type=int, metavar='N', help='num of workers for data loading')
     parser.add_argument('--lr', default=1.0e-3, type=float, metavar='LR', help='initial learning rate')
-    parser.add_argument('--lr_decay', type=int, default=100000, help='num of steps of learning rate decay')
+    parser.add_argument('--lr_decay', type=int, default=25000, help='num of steps of learning rate decay')
     parser.add_argument('--lr_gamma', type=float, default=0.96, help='gamma of learning rate decay')
     parser.add_argument('--no_max', dest='max_norm', action='store_false', help='if use max_norm clip on grad')
     parser.set_defaults(max_norm=True)
@@ -61,6 +61,8 @@ def parse_args():
     parser.add_argument('-n', '--name', default='', type=str, metavar='NAME', help='name of model')
     parser.add_argument('--graph', default='default', type=str, metavar='NAME', help='name of graph')
     parser.add_argument('--refine', default='default', type=str, metavar='NAME', help='name of graph')
+    parser.add_argument('--conditional', dest='conditional', action='store_true', help='if use conditional gcn')
+    parser.set_defaults(conditional=False)
 
     # Experimental
     parser.add_argument('--downsample', default=1, type=int, metavar='FACTOR', help='downsample frame rate by factor')
@@ -109,7 +111,7 @@ def main(args):
     p_dropout = (None if args.dropout == 0.0 else args.dropout)
     adj = adj_mx_from_skeleton(dataset.skeleton(), args.graph, args.refine).to(device)
 
-    model_pos = GCN(adj, args.hid_dim, num_layers=args.num_layers, p_dropout=p_dropout,
+    model_pos = GCN(adj, args.hid_dim, num_layers=args.num_layers, p_dropout=p_dropout, num_experts=6 if args.conditional else 0,
                     nodes_group=dataset.skeleton().joints_group() if args.non_local else None, gcn_type=args.model).to(device)
 
     # Graph visualization

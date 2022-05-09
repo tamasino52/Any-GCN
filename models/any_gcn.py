@@ -18,35 +18,27 @@ from models.graph_non_local import GraphNonLocal
 
 
 class _GraphConv(nn.Module):
-    def __init__(self, adj, input_dim, output_dim, p_dropout=None, gcn_type=None):
+    def __init__(self, adj, input_dim, output_dim, p_dropout=None, gcn_type=None, num_experts=0):
         super(_GraphConv, self).__init__()
 
         if gcn_type == 'vanilla':
-            self.gconv = DecoupleVanillaGraphConv(input_dim, output_dim, adj, decouple=False)
+            self.gconv = DecoupleVanillaGraphConv(input_dim, output_dim, adj, decouple=False, num_experts=num_experts)
         elif gcn_type == 'dc_vanilla':
-            self.gconv = DecoupleVanillaGraphConv(input_dim, output_dim, adj)
+            self.gconv = DecoupleVanillaGraphConv(input_dim, output_dim, adj, num_experts=num_experts)
         elif gcn_type == 'preagg':
-            self.gconv = DecouplePreAggGraphConv(input_dim, output_dim, adj, decouple=False)
+            self.gconv = DecouplePreAggGraphConv(input_dim, output_dim, adj, decouple=False, num_experts=num_experts)
         elif gcn_type == 'dc_preagg':
-            self.gconv = DecouplePreAggGraphConv(input_dim, output_dim, adj)
+            self.gconv = DecouplePreAggGraphConv(input_dim, output_dim, adj, num_experts=num_experts)
         elif gcn_type == 'postagg':
-            self.gconv = DecouplePostAggGraphConv(input_dim, output_dim, adj, decouple=False)
+            self.gconv = DecouplePostAggGraphConv(input_dim, output_dim, adj, decouple=False, num_experts=num_experts)
         elif gcn_type == 'dc_postagg':
-            self.gconv = DecouplePostAggGraphConv(input_dim, output_dim, adj)
+            self.gconv = DecouplePostAggGraphConv(input_dim, output_dim, adj, num_experts=num_experts)
         elif gcn_type == 'convst':
-            self.gconv = ConvStyleGraphConv(input_dim, output_dim, adj)
+            self.gconv = ConvStyleGraphConv(input_dim, output_dim, adj, num_experts=num_experts)
         elif gcn_type == 'nosharing':
-            self.gconv = NoSharingGraphConv(input_dim, output_dim, adj)
-        elif gcn_type == 'ch_semantic':
-            self.gconv = SemCHGraphConv(input_dim, output_dim, adj)
-        elif gcn_type == 'semantic':
-            self.gconv = SemGraphConv(input_dim, output_dim, adj)
-        elif gcn_type == 'chebyshev':
-            self.gconv = ChebyshevGraphConv(input_dim, output_dim, adj)
+            self.gconv = NoSharingGraphConv(input_dim, output_dim, adj, num_experts=num_experts)
         elif gcn_type == 'modulated':
-            self.gconv = ModulatedGraphConv(input_dim, output_dim, adj)
-        elif gcn_type == 'conditional':
-            self.gconv = ConditionalGraphConv(input_dim, output_dim, adj)
+            self.gconv = ModulatedGraphConv(input_dim, output_dim, adj, num_experts=num_experts)
         else:
             assert False, 'Invalid graph convolution module type'
 
@@ -69,11 +61,11 @@ class _GraphConv(nn.Module):
 
 
 class _ResGraphConv(nn.Module):
-    def __init__(self, adj, input_dim, output_dim, hid_dim, p_dropout, gcn_type=None):
+    def __init__(self, adj, input_dim, output_dim, hid_dim, p_dropout, gcn_type=None, num_experts=0):
         super(_ResGraphConv, self).__init__()
 
-        self.gconv1 = _GraphConv(adj, input_dim, hid_dim, p_dropout, gcn_type)
-        self.gconv2 = _GraphConv(adj, hid_dim, output_dim, p_dropout, gcn_type)
+        self.gconv1 = _GraphConv(adj, input_dim, hid_dim, p_dropout, gcn_type, num_experts)
+        self.gconv2 = _GraphConv(adj, hid_dim, output_dim, p_dropout, gcn_type, num_experts)
 
     def forward(self, x):
         residual = x
@@ -98,15 +90,15 @@ class _GraphNonLocal(nn.Module):
 
 
 class GCN(nn.Module):
-    def __init__(self, adj, hid_dim, coords_dim=(2, 3), num_layers=4, nodes_group=None, p_dropout=None, gcn_type=None):
+    def __init__(self, adj, hid_dim, coords_dim=(2, 3), num_layers=4, nodes_group=None, p_dropout=None, gcn_type=None, num_experts=6):
         super(GCN, self).__init__()
 
-        _gconv_input = [_GraphConv(adj, coords_dim[0], hid_dim, p_dropout=p_dropout, gcn_type=gcn_type)]
+        _gconv_input = [_GraphConv(adj, coords_dim[0], hid_dim, p_dropout=p_dropout, gcn_type=gcn_type, num_experts=0)]
         _gconv_layers = []
 
         if nodes_group is None:
             for i in range(num_layers):
-                _gconv_layers.append(_ResGraphConv(adj, hid_dim, hid_dim, hid_dim, p_dropout=p_dropout, gcn_type=gcn_type))
+                _gconv_layers.append(_ResGraphConv(adj, hid_dim, hid_dim, hid_dim, p_dropout=p_dropout, gcn_type=gcn_type, num_experts=num_experts))
         else:
             group_size = len(nodes_group[0])
             assert group_size > 1
@@ -121,38 +113,30 @@ class GCN(nn.Module):
 
             _gconv_input.append(_GraphNonLocal(hid_dim, grouped_order, restored_order, group_size))
             for i in range(num_layers):
-                _gconv_layers.append(_ResGraphConv(adj, hid_dim, hid_dim, hid_dim, p_dropout=p_dropout, gcn_type=gcn_type))
+                _gconv_layers.append(_ResGraphConv(adj, hid_dim, hid_dim, hid_dim, p_dropout=p_dropout, gcn_type=gcn_type, num_experts=num_experts))
                 _gconv_layers.append(_GraphNonLocal(hid_dim, grouped_order, restored_order, group_size))
 
         self.gconv_input = nn.Sequential(*_gconv_input)
         self.gconv_layers = nn.Sequential(*_gconv_layers)
 
         if gcn_type == 'vanilla':
-            self.gconv_output = DecoupleVanillaGraphConv(hid_dim, coords_dim[1], adj, decouple=False)
+            self.gconv_output = DecoupleVanillaGraphConv(hid_dim, coords_dim[1], adj, decouple=False, num_experts=num_experts)
         elif gcn_type == 'dc_vanilla':
-            self.gconv_output = DecoupleVanillaGraphConv(hid_dim, coords_dim[1], adj)
+            self.gconv_output = DecoupleVanillaGraphConv(hid_dim, coords_dim[1], adj, num_experts=num_experts)
         elif gcn_type == 'preagg':
-            self.gconv_output = DecouplePreAggGraphConv(hid_dim, coords_dim[1], adj, decouple=False)
+            self.gconv_output = DecouplePreAggGraphConv(hid_dim, coords_dim[1], adj, decouple=False, num_experts=num_experts)
         elif gcn_type == 'dc_preagg':
-            self.gconv_output = DecouplePreAggGraphConv(hid_dim, coords_dim[1], adj)
+            self.gconv_output = DecouplePreAggGraphConv(hid_dim, coords_dim[1], adj, num_experts=num_experts)
         elif gcn_type == 'postagg':
-            self.gconv_output = DecouplePostAggGraphConv(hid_dim, coords_dim[1], adj, decouple=False)
+            self.gconv_output = DecouplePostAggGraphConv(hid_dim, coords_dim[1], adj, decouple=False, num_experts=num_experts)
         elif gcn_type == 'dc_postagg':
-            self.gconv_output = DecouplePostAggGraphConv(hid_dim, coords_dim[1], adj)
+            self.gconv_output = DecouplePostAggGraphConv(hid_dim, coords_dim[1], adj, num_experts=num_experts)
         elif gcn_type == 'convst':
-            self.gconv_output = ConvStyleGraphConv(hid_dim, coords_dim[1], adj)
+            self.gconv_output = ConvStyleGraphConv(hid_dim, coords_dim[1], adj, num_experts=num_experts)
         elif gcn_type == 'nosharing':
-            self.gconv_output = NoSharingGraphConv(hid_dim, coords_dim[1], adj)
-        elif gcn_type == 'ch_semantic':
-            self.gconv_output = SemCHGraphConv(hid_dim, coords_dim[1], adj)
-        elif gcn_type == 'semantic':
-            self.gconv_output = SemGraphConv(hid_dim, coords_dim[1], adj)
-        elif gcn_type == 'chebyshev':
-            self.gconv_output = ChebyshevGraphConv(hid_dim, coords_dim[1], adj)
+            self.gconv_output = NoSharingGraphConv(hid_dim, coords_dim[1], adj, num_experts=num_experts)
         elif gcn_type == 'modulated':
-            self.gconv_output = ModulatedGraphConv(hid_dim, coords_dim[1], adj)
-        elif gcn_type == 'conditional':
-            self.gconv_output = ConditionalGraphConv(hid_dim, coords_dim[1], adj)
+            self.gconv_output = ModulatedGraphConv(hid_dim, coords_dim[1], adj, num_experts=num_experts)
         else:
             assert False, 'Invalid graph convolution module type'
 
