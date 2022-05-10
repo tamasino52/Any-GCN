@@ -46,7 +46,7 @@ def parse_args():
                         help='batch size in terms of predicted frames')
     parser.add_argument('-e', '--epochs', default=50, type=int, metavar='N', help='number of training epochs')
     parser.add_argument('--lamda', '--weight_L1_norm', default=0.1, type=float, metavar='N', help='scale of L1 Norm')
-    parser.add_argument('--num_workers', default=4, type=int, metavar='N', help='num of workers for data loading')
+    parser.add_argument('--num_workers', default=8, type=int, metavar='N', help='num of workers for data loading')
     parser.add_argument('--lr', default=1.0e-3, type=float, metavar='LR', help='initial learning rate')
     parser.add_argument('--lr_decay', type=int, default=25000, help='num of steps of learning rate decay')
     parser.add_argument('--lr_gamma', type=float, default=0.96, help='gamma of learning rate decay')
@@ -61,8 +61,8 @@ def parse_args():
     parser.add_argument('-n', '--name', default='', type=str, metavar='NAME', help='name of model')
     parser.add_argument('--graph', default='default', type=str, metavar='NAME', help='name of graph')
     parser.add_argument('--refine', default='default', type=str, metavar='NAME', help='name of graph')
-    parser.add_argument('--conditional', dest='conditional', action='store_true', help='if use conditional gcn')
-    parser.set_defaults(conditional=False)
+    parser.add_argument('--num_experts', type=int, default=0, help='if > 0 then use conditional gcn')
+    parser.add_argument('--reg_type', default='add', type=str, metavar='NAME', help='type of conditional regularization')
 
     # Experimental
     parser.add_argument('--downsample', default=1, type=int, metavar='FACTOR', help='downsample frame rate by factor')
@@ -111,7 +111,7 @@ def main(args):
     p_dropout = (None if args.dropout == 0.0 else args.dropout)
     adj = adj_mx_from_skeleton(dataset.skeleton(), args.graph, args.refine).to(device)
 
-    model_pos = GCN(adj, args.hid_dim, num_layers=args.num_layers, p_dropout=p_dropout, num_experts=6 if args.conditional else 0,
+    model_pos = GCN(adj, args.hid_dim, num_layers=args.num_layers, p_dropout=p_dropout, num_experts=args.num_experts, reg_type=args.reg_type,
                     nodes_group=dataset.skeleton().joints_group() if args.non_local else None, gcn_type=args.model).to(device)
 
     # Graph visualization
