@@ -87,3 +87,21 @@ def mean_velocity_error(predicted, target):
     velocity_target = np.diff(target, axis=0)
 
     return np.mean(np.linalg.norm(velocity_predicted - velocity_target, axis=len(target.shape) - 1))
+
+
+def sym_penalty(pred_out):
+    """
+    get penalty for the symmetry of human body
+    :return:
+    """
+    loss_sym = 0
+    left_bone = [(0, 4), (4, 5), (5, 6), (8, 10), (10, 11), (11, 12)]
+    right_bone = [(0, 1), (1, 2), (2, 3), (8, 13), (13, 14), (14, 15)]
+
+    for (i_left, j_left), (i_right, j_right) in zip(left_bone, right_bone):
+        left_part = pred_out[:, i_left] - pred_out[:, j_left]
+        right_part = pred_out[:, i_right] - pred_out[:, j_right]
+        loss_sym += torch.mean(torch.norm(left_part, dim=- 1) - torch.norm(right_part, dim=- 1))
+
+    return loss_sym
+

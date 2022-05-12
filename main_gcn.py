@@ -19,8 +19,11 @@ from common.utils import AverageMeter, lr_decay, save_ckpt
 from common.graph_utils import adj_mx_from_skeleton
 from common.data_utils import fetch, read_3d_data, create_2d_data
 from common.generators import PoseGenerator
-from common.loss import mpjpe, p_mpjpe
+from common.loss import mpjpe, p_mpjpe, sym_penalty
+from common.camera import get_uvd2xyz
+
 from models.any_gcn import GCN
+from models.post_refine import PostRefine
 
 
 def parse_args():
@@ -54,6 +57,8 @@ def parse_args():
     parser.set_defaults(max_norm=True)
     parser.add_argument('--non_local', dest='non_local', action='store_true', help='if use non-local layers')
     parser.set_defaults(non_local=False)
+    parser.add_argument('--post_refine', dest='post_refine', action='store_true', help='if use post-refine layers')
+    parser.set_defaults(post_refine=False)
     parser.add_argument('--adamw', dest='adamw', action='store_true', help='if use adamw optimizer')
     parser.set_defaults(adamw=False)
     parser.add_argument('--dropout', default=0.0, type=float, help='dropout rate')
@@ -110,6 +115,12 @@ def main(args):
 
     p_dropout = (None if args.dropout == 0.0 else args.dropout)
     adj = adj_mx_from_skeleton(dataset.skeleton(), args.graph, args.refine).to(device)
+
+    # Post refinement model
+    if args.post_refine:
+        model_post_refine = PostRefine(2, 3, 16).to(device)
+    else:
+        model_post_refine = None
 
     model_pos = GCN(adj, args.hid_dim, num_layers=args.num_layers, p_dropout=p_dropout, num_experts=args.num_experts, reg_type=args.reg_type,
                     nodes_group=dataset.skeleton().joints_group() if args.non_local else None, gcn_type=args.model).to(device)
@@ -179,8 +190,8 @@ def main(args):
         errors_p2 = np.zeros(len(action_filter))
 
         for i, action in enumerate(action_filter):
-            poses_valid, poses_valid_2d, actions_valid = fetch(subjects_test, dataset, keypoints, [action], stride)
-            valid_loader = DataLoader(PoseGenerator(poses_valid, poses_valid_2d, actions_valid),
+            poses_valid, poses_valid_2d, actions_valid, cam_valid = fetch(subjects_test, dataset, keypoints, [action], stride)
+            valid_loader = DataLoader(PoseGenerator(poses_valid, poses_valid_2d, actions_valid, cam_valid),
                                       batch_size=args.batch_size, shuffle=False,
                                       num_workers=args.num_workers, pin_memory=True)
             errors_p1[i], errors_p2[i] = evaluate(valid_loader, model_pos, device)
@@ -189,19 +200,20 @@ def main(args):
         print('Protocol #2 (P-MPJPE) action-wise average: {:.2f} (mm)'.format(np.mean(errors_p2).item()))
         exit(0)
 
-    poses_train, poses_train_2d, actions_train = fetch(subjects_train, dataset, keypoints, action_filter, stride)
-    train_loader = DataLoader(PoseGenerator(poses_train, poses_train_2d, actions_train), batch_size=args.batch_size,
+    poses_train, poses_train_2d, actions_train, cam_train = fetch(subjects_train, dataset, keypoints, action_filter, stride)
+    train_loader = DataLoader(PoseGenerator(poses_train, poses_train_2d, actions_train, cam_train), batch_size=args.batch_size,
                               shuffle=True, num_workers=args.num_workers, pin_memory=True)
 
-    poses_valid, poses_valid_2d, actions_valid = fetch(subjects_test, dataset, keypoints, action_filter, stride)
-    valid_loader = DataLoader(PoseGenerator(poses_valid, poses_valid_2d, actions_valid), batch_size=args.batch_size,
+    poses_valid, poses_valid_2d, actions_valid, cam_valid = fetch(subjects_test, dataset, keypoints, action_filter, stride)
+    valid_loader = DataLoader(PoseGenerator(poses_valid, poses_valid_2d, actions_valid, cam_valid), batch_size=args.batch_size,
                               shuffle=False, num_workers=args.num_workers, pin_memory=True)
 
     for epoch in range(start_epoch, args.epochs):
         print('\nEpoch: %d | LR: %.8f' % (epoch + 1, lr_now))
 
         # Train for one epoch
-        epoch_loss, lr_now, glob_step = train(train_loader, model_pos, args.lamda, criterion, criterionL1, optimizer,
+        epoch_loss, lr_now, glob_step = train(train_loader, model_pos, model_post_refine,
+                                              args.lamda, criterion, criterionL1, optimizer,
                                               device, args.lr, lr_now,
                                               glob_step, args.lr_decay, args.lr_gamma, max_norm=args.max_norm)
 
@@ -215,11 +227,13 @@ def main(args):
         if error_best is None or error_best > error_eval_p1:
             error_best = error_eval_p1
             save_ckpt({'epoch': epoch + 1, 'lr': lr_now, 'step': glob_step, 'state_dict': model_pos.state_dict(),
-                       'optimizer': optimizer.state_dict(), 'error': error_eval_p1}, ckpt_dir_path, suffix='best')
+                       'optimizer': optimizer.state_dict(), 'post_refine': model_post_refine, 'error': error_eval_p1},
+                      ckpt_dir_path, suffix='best')
 
         if (epoch + 1) % args.snapshot == 0:
             save_ckpt({'epoch': epoch + 1, 'lr': lr_now, 'step': glob_step, 'state_dict': model_pos.state_dict(),
-                       'optimizer': optimizer.state_dict(), 'error': error_eval_p1}, ckpt_dir_path)
+                       'optimizer': optimizer.state_dict(), 'post_refine': model_post_refine, 'error': error_eval_p1},
+                      ckpt_dir_path)
 
     logger.close()
     logger.plot(['loss_train', 'error_eval_p1'])
@@ -228,7 +242,7 @@ def main(args):
     return
 
 
-def train(data_loader, model_pos, lamda, criterion, criterionL1, optimizer, device, lr_init, lr_now, step, decay, gamma,
+def train(data_loader, model_pos, model_post_refine, lamda, criterion, criterionL1, optimizer, device, lr_init, lr_now, step, decay, gamma,
           max_norm=True):
     batch_time = AverageMeter()
     data_time = AverageMeter()
@@ -237,10 +251,11 @@ def train(data_loader, model_pos, lamda, criterion, criterionL1, optimizer, devi
     # Switch to train mode
     torch.set_grad_enabled(True)
     model_pos.train()
+    model_post_refine.train()
     end = time.time()
 
     bar = Bar('Train', max=len(data_loader))
-    for i, (targets_3d, inputs_2d, _) in enumerate(data_loader):
+    for i, (targets_3d, inputs_2d, _, batch_cam) in enumerate(data_loader):
         # Measure data loading time
         data_time.update(time.time() - end)
         num_poses = targets_3d.size(0)
@@ -249,11 +264,22 @@ def train(data_loader, model_pos, lamda, criterion, criterionL1, optimizer, devi
         if step % decay == 0 or step == 1:
             lr_now = lr_decay(optimizer, step, lr_init, decay, gamma)
 
-        targets_3d, inputs_2d = targets_3d.to(device), inputs_2d.to(device)
+        targets_3d, inputs_2d, batch_cam = targets_3d.to(device), inputs_2d.to(device), batch_cam.to(device)
         outputs_3d = model_pos(inputs_2d)
 
+        if model_post_refine is not None:
+            uvd = torch.cat((inputs_2d.unsqueeze(1), outputs_3d[:, None, :, 2].unsqueeze(-1)), -1)
+            xyz = get_uvd2xyz(uvd, targets_3d[:, None], batch_cam).squeeze()
+            xyz[:, 0, :] = 0
+
+            post_out = model_post_refine(outputs_3d, xyz)
+            loss_sym = sym_penalty(post_out)
+            loss_post_refine = mpjpe(post_out, targets_3d) + 0.01*loss_sym
+        else:
+            loss_post_refine = 0
+
         optimizer.zero_grad()
-        loss_3d_pos = (1 - lamda) * criterion(outputs_3d, targets_3d) + lamda * criterionL1(outputs_3d, targets_3d)
+        loss_3d_pos = (1 - lamda) * criterion(outputs_3d, targets_3d) + lamda * criterionL1(outputs_3d, targets_3d) + loss_post_refine
         loss_3d_pos.backward()
         if max_norm:
             nn.utils.clip_grad_norm_(model_pos.parameters(), max_norm=1)
@@ -287,13 +313,14 @@ def evaluate(data_loader, model_pos, device):
     end = time.time()
 
     bar = Bar('Eval ', max=len(data_loader))
-    for i, (targets_3d, inputs_2d, _) in enumerate(data_loader):
+    for i, (targets_3d, inputs_2d, _, _) in enumerate(data_loader):
         # Measure data loading time
         data_time.update(time.time() - end)
         num_poses = targets_3d.size(0)
 
         inputs_2d = inputs_2d.to(device)
         outputs_3d = model_pos(inputs_2d).cpu()
+
         outputs_3d[:, :, :] = outputs_3d[:, :, :] - outputs_3d[:, :1, :]  # Zero-centre the root (hip)
 
         epoch_loss_3d_pos.update(mpjpe(outputs_3d, targets_3d).item() * 1000.0, num_poses)

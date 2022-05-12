@@ -50,7 +50,7 @@ class ModulatedGraphConv(nn.Module):
             self.register_parameter('bias', None)
 
         if self.conditional:
-            self._routing_fn = _routing(in_features, num_experts, 0.)
+            self._routing_fn = _routing(in_features, num_experts, 0.2)
             self.experts = nn.Parameter(adj.unsqueeze(0).repeat(num_experts, 1, 1))
             nn.init.xavier_uniform_(self.experts)
 
