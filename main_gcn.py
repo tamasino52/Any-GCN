@@ -251,7 +251,8 @@ def train(data_loader, model_pos, model_post_refine, lamda, criterion, criterion
     # Switch to train mode
     torch.set_grad_enabled(True)
     model_pos.train()
-    model_post_refine.train()
+    if model_post_refine is not None:
+        model_post_refine.train()
     end = time.time()
 
     bar = Bar('Train', max=len(data_loader))
