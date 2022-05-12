@@ -5,29 +5,7 @@
 This repository provides pytorch implementations that API existing 3D human pose estimation models using GCN.
 Models implemented in the API are provided with a standardard residual architecture and use standard hyperparameters different from those used in existing papers, so there may be differences in the performance proposed in the paper. The references of GCN blocks provided by this repository are as follows.
 
-[Semantic Graph Convolutional Networks for 3D Human Pose Regression](https://arxiv.org/pdf/1904.03345) by Long Zhao, Xi Peng, Yu Tian, Mubbasir Kapadia, Dimitris N. Metaxas.
 
-```
-@article{DBLP:journals/corr/abs-1904-03345,
-  author    = {Long Zhao, Xi Peng, Yu Tian, Mubbasir Kapadia and Dimitris N. Metaxas},
-  title     = {Semantic Graph Convolutional Networks for 3D Human Pose Regression},
-  journal   = {CoRR},
-  volume    = {abs/1904.03345},
-  year      = {2019}
-}
-```
-
-[GraFormer: Graph Convolution Transformer for 3D Pose Estimation](https://arxiv.org/pdf/2109.08364) by Weixi Zhao, Yunjie Tian, Qixiang Ye, Jianbin Jiao, Weiqiang Wang.
-
-```
-@article{DBLP:journals/corr/abs-2109-08364,
-  author    = {Weixi Zhao, Yunjie Tian, Qixiang Ye, Jianbin Jiao and Weiqiang Wang},
-  title     = {GraFormer: Graph Convolution Transformer for 3D Pose Estimation},
-  journal   = {CoRR},
-  volume    = {abs/2109.08364},
-  year      = {2021}
-}
-```
 [A Comprehensive Study of Weight Sharing in Graph Networks for 3D Human Pose Estimation](https://www.ecva.net/papers/eccv_2020/papers_ECCV/papers/123550324.pdf) by Kenkun Liu, Rongqi Ding, Zhiming Zou, Le Wang, Wei Tang.
 
 ```
@@ -136,15 +114,6 @@ python main_gcn.py --model convst
 
 # No-sharing GCN
 python main_gcn.py --model nosharing
-
-# Semantic GCN
-python main_gcn.py --model semantic
-
-# Channel-wise Semantic GCN
-python main_gcn.py --model ch_semantic
-
-# Chebyshev GCN (proposed in GraFormer)
-python main_gcn.py --model chebyshev
 
 # Modulated GCN
 python main_gcn.py --model modulated
